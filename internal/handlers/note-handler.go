@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -92,6 +93,37 @@ func (h *NoteHandler) GetAllNotes(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(notes)
 	if err != nil {
 		fmt.Printf("[ERROR] GET /note: %s\n", rows.Err().Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *NoteHandler) GetNoteById(w http.ResponseWriter, r *http.Request) {
+	rawId := r.PathValue("id")
+	id, err := uuid.Parse(rawId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Provided id is invalid"))
+		return
+	}
+
+	var note domain.Note
+	row := h.conn.QueryRow(r.Context(), "SELECT * FROM note WHERE id=$1", id)
+	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		fmt.Printf("[ERROR] GET /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(note); err != nil {
+		fmt.Printf("[ERROR] GET /note/%s: %s\n", rawId, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

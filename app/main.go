@@ -73,6 +73,7 @@ func main() {
 	})
 	mux.HandleFunc("POST /note", noteHandler.CreateNote)
 	mux.HandleFunc("GET /note", noteHandler.GetAllNotes)
+	mux.HandleFunc("GET /note/{id}", noteHandler.GetNoteById)
 
 	s := &http.Server{
 		Addr:    ":" + port,
