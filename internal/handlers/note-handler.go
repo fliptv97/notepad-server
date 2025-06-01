@@ -22,7 +22,7 @@ func NewNoteHandler(repo *repositories.NoteRepository) *NoteHandler {
 	}
 }
 
-func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
+func (nh *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	type RequestBody struct {
 		Title   string `json:"title"`
 		Content string `json:"content"`
@@ -44,7 +44,7 @@ func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.repo.Create(r.Context(), reqBody.Title, reqBody.Content)
+	_, err := nh.repo.Create(r.Context(), reqBody.Title, reqBody.Content)
 	if err != nil {
 		fmt.Printf("[ERROR] POST /note: %s\n", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -54,8 +54,8 @@ func (h *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	notes, err := h.repo.GetAll(r.Context())
+func (nh *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
+	notes, err := nh.repo.GetAll(r.Context())
 	if err != nil {
 		fmt.Printf("[ERROR] GET /note: %s\n", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -71,7 +71,7 @@ func (h *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *NoteHandler) GetById(w http.ResponseWriter, r *http.Request) {
+func (nh *NoteHandler) GetById(w http.ResponseWriter, r *http.Request) {
 	rawId := r.PathValue("id")
 	id, err := uuid.Parse(rawId)
 	if err != nil {
@@ -80,7 +80,7 @@ func (h *NoteHandler) GetById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	note, err := h.repo.GetById(r.Context(), id)
+	note, err := nh.repo.GetById(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
@@ -100,7 +100,7 @@ func (h *NoteHandler) GetById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
+func (nh *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	rawId := r.PathValue("id")
 	id, err := uuid.Parse(rawId)
 	if err != nil {
@@ -125,7 +125,7 @@ func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	note, err := h.repo.GetById(r.Context(), id)
+	note, err := nh.repo.GetById(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
@@ -143,7 +143,7 @@ func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		note.Content = *reqBody.Content
 	}
 	note.UpdatedAt = time.Now().UTC()
-	err = h.repo.Update(r.Context(), id, note.Title, note.Content)
+	err = nh.repo.Update(r.Context(), id, note.Title, note.Content)
 	if err != nil {
 		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -157,7 +157,7 @@ func (h *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *NoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (nh *NoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	rawId := r.PathValue("id")
 	id, err := uuid.Parse(rawId)
 	if err != nil {
@@ -166,7 +166,7 @@ func (h *NoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err = h.repo.GetById(r.Context(), id); err != nil {
+	if _, err = nh.repo.GetById(r.Context(), id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -176,7 +176,7 @@ func (h *NoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = h.repo.Delete(r.Context(), id); err != nil {
+	if err = nh.repo.Delete(r.Context(), id); err != nil {
 		fmt.Printf("[ERROR] DELETE /note/%s: %s\n", rawId, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
