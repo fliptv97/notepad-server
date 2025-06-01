@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/fliptv97/notepad-server/internal/handlers"
+	"github.com/fliptv97/notepad-server/internal/repositories"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 )
@@ -59,7 +60,8 @@ func main() {
 		}
 	}()
 
-	noteHandler := handlers.NewNoteHandler(conn)
+	noteRepository := repositories.NewNoteRepository(conn)
+	noteHandler := handlers.NewNoteHandler(noteRepository)
 
 	port := os.Getenv("PORT")
 	if port == "" {

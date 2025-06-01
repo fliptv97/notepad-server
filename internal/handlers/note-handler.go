@@ -7,52 +7,44 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fliptv97/notepad-server/domain"
+	"github.com/fliptv97/notepad-server/internal/repositories"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type NoteHandler struct {
-	conn *pgx.Conn
+	repo *repositories.NoteRepository
 }
 
-func NewNoteHandler(conn *pgx.Conn) *NoteHandler {
+func NewNoteHandler(repo *repositories.NoteRepository) *NoteHandler {
 	return &NoteHandler{
-		conn: conn,
+		repo: repo,
 	}
 }
 
 func (h *NoteHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
-	type Note struct {
+	type RequestBody struct {
 		Title   string `json:"title"`
 		Content string `json:"content"`
 	}
-	var note Note
-	if err := json.NewDecoder(r.Body).Decode(&note); err != nil {
+	var reqBody RequestBody
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if note.Title == "" {
+	if reqBody.Title == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("'title' is required field"))
 		return
 	}
-	if note.Content == "" {
+	if reqBody.Content == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("'content' is required field"))
 		return
 	}
 
-	_, err := h.conn.Exec(
-		r.Context(),
-		"INSERT INTO note (id, title, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
-		uuid.New(),
-		note.Title,
-		note.Content,
-		time.Now(),
-		time.Now(),
-	)
+	_, err := h.repo.Create(r.Context(), reqBody.Title, reqBody.Content)
 	if err != nil {
 		fmt.Printf("[ERROR] POST /note: %s\n", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -63,28 +55,9 @@ func (h *NoteHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NoteHandler) GetAllNotes(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.conn.Query(r.Context(), "SELECT * FROM note")
+	notes, err := h.repo.GetAll(r.Context())
 	if err != nil {
 		fmt.Printf("[ERROR] GET /note: %s\n", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var note domain.Note
-	notes := []domain.Note{}
-	for rows.Next() {
-		err := rows.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
-		if err != nil {
-			fmt.Printf("[ERROR] GET /note: %s\n", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		notes = append(notes, note)
-	}
-
-	if rows.Err() != nil {
-		fmt.Printf("[ERROR] GET /note: %s\n", rows.Err().Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -92,7 +65,7 @@ func (h *NoteHandler) GetAllNotes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(notes)
 	if err != nil {
-		fmt.Printf("[ERROR] GET /note: %s\n", rows.Err().Error())
+		fmt.Printf("[ERROR] GET /note: %s\n", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -107,9 +80,7 @@ func (h *NoteHandler) GetNoteById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var note domain.Note
-	row := h.conn.QueryRow(r.Context(), "SELECT * FROM note WHERE id=$1", id)
-	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
+	note, err := h.repo.GetById(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
@@ -154,10 +125,7 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var note domain.Note
-	queryStr := "SELECT id, title, content, created_at, updated_at FROM note WHERE id=$1"
-	row := h.conn.QueryRow(r.Context(), queryStr, id)
-	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
+	note, err := h.repo.GetById(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
@@ -175,14 +143,7 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		note.Content = *reqBody.Content
 	}
 	note.UpdatedAt = time.Now().UTC()
-	_, err = h.conn.Exec(
-		r.Context(),
-		"UPDATE note SET title=$1, content=$2, updated_at=$3 WHERE id=$4",
-		note.Title,
-		note.Content,
-		note.UpdatedAt,
-		id,
-	)
+	err = h.repo.Update(r.Context(), id, note.Title, note.Content)
 	if err != nil {
 		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -205,11 +166,7 @@ func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var note domain.Note
-	queryStr := "SELECT id, title, content, created_at, updated_at FROM note WHERE id=$1"
-	row := h.conn.QueryRow(r.Context(), queryStr, id)
-	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
-	if err != nil {
+	if _, err = h.repo.GetById(r.Context(), id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -219,7 +176,7 @@ func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err = h.conn.Exec(r.Context(), "DELETE FROM note WHERE id=$1", id); err != nil {
+	if err = h.repo.Delete(r.Context(), id); err != nil {
 		fmt.Printf("[ERROR] DELETE /note/%s: %s\n", rawId, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
