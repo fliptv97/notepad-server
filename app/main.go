@@ -73,11 +73,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	mux.HandleFunc("POST /note", noteHandler.CreateNote)
-	mux.HandleFunc("GET /note", noteHandler.GetAllNotes)
-	mux.HandleFunc("GET /note/{id}", noteHandler.GetNoteById)
-	mux.HandleFunc("PATCH /note/{id}", noteHandler.UpdateNote)
-	mux.HandleFunc("DELETE /note/{id}", noteHandler.DeleteNote)
+	mux.HandleFunc("POST /note", noteHandler.Create)
+	mux.HandleFunc("GET /note", noteHandler.GetAll)
+	mux.HandleFunc("GET /note/{id}", noteHandler.GetById)
+	mux.HandleFunc("PATCH /note/{id}", noteHandler.Update)
+	mux.HandleFunc("DELETE /note/{id}", noteHandler.Delete)
 
 	s := &http.Server{
 		Addr:    ":" + port,
