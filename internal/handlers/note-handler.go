@@ -191,7 +191,7 @@ func (nh *NoteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (nh *NoteHandler) respondWithError(w http.ResponseWriter, status int, messages ...string) {
 	w.WriteHeader(status)
 
-	if len(messages) > 0 {
+	if len(messages) == 0 {
 		return
 	}
 
