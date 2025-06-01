@@ -1,22 +1,31 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/fliptv97/notepad-server/internal/repositories"
+	"github.com/fliptv97/notepad-server/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-type NoteHandler struct {
-	repo *repositories.NoteRepository
+type NoteRepository interface {
+	Create(ctx context.Context, title, content string) (*domain.Note, error)
+	GetAll(ctx context.Context) ([]domain.Note, error)
+	GetById(ctx context.Context, id uuid.UUID) (*domain.Note, error)
+	Update(ctx context.Context, id uuid.UUID, title, content string) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-func NewNoteHandler(repo *repositories.NoteRepository) *NoteHandler {
+type NoteHandler struct {
+	repo NoteRepository
+}
+
+func NewNoteHandler(repo NoteRepository) *NoteHandler {
 	return &NoteHandler{
 		repo: repo,
 	}
