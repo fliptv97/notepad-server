@@ -160,8 +160,8 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("Note with id '%s' doesn't exists", rawId)))
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
 		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -194,4 +194,36 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	rawId := r.PathValue("id")
+	id, err := uuid.Parse(rawId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Provided id is invalid"))
+		return
+	}
+
+	var note domain.Note
+	queryStr := "SELECT id, title, content, created_at, updated_at FROM note WHERE id=$1"
+	row := h.conn.QueryRow(r.Context(), queryStr, id)
+	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		fmt.Printf("[ERROR] DELETE /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if _, err = h.conn.Exec(r.Context(), "DELETE FROM note WHERE id=$1", id); err != nil {
+		fmt.Printf("[ERROR] DELETE /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
