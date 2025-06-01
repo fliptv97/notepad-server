@@ -128,3 +128,70 @@ func (h *NoteHandler) GetNoteById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
+	rawId := r.PathValue("id")
+	id, err := uuid.Parse(rawId)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Provided id is invalid"))
+		return
+	}
+
+	type requestBody struct {
+		Title   *string `json:"title,omitempty"`
+		Content *string `json:"content,omitempty"`
+	}
+	var reqBody requestBody
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if reqBody.Title == nil && reqBody.Content == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Request should contain at least one property to update"))
+		return
+	}
+
+	var note domain.Note
+	queryStr := "SELECT id, title, content, created_at, updated_at FROM note WHERE id=$1"
+	row := h.conn.QueryRow(r.Context(), queryStr, id)
+	err = row.Scan(&note.Id, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("Note with id '%s' doesn't exists", rawId)))
+		}
+		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if reqBody.Title != nil {
+		note.Title = *reqBody.Title
+	}
+	if reqBody.Content != nil {
+		note.Content = *reqBody.Content
+	}
+	note.UpdatedAt = time.Now().UTC()
+	_, err = h.conn.Exec(
+		r.Context(),
+		"UPDATE note SET title=$1, content=$2, updated_at=$3 WHERE id=$4",
+		note.Title,
+		note.Content,
+		note.UpdatedAt,
+		id,
+	)
+	if err != nil {
+		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(note); err != nil {
+		fmt.Printf("[ERROR] PATCH /note/%s: %s\n", rawId, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}

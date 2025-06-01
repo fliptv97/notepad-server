@@ -74,6 +74,7 @@ func main() {
 	mux.HandleFunc("POST /note", noteHandler.CreateNote)
 	mux.HandleFunc("GET /note", noteHandler.GetAllNotes)
 	mux.HandleFunc("GET /note/{id}", noteHandler.GetNoteById)
+	mux.HandleFunc("PATCH /note/{id}", noteHandler.UpdateNote)
 
 	s := &http.Server{
 		Addr:    ":" + port,
