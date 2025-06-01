@@ -24,8 +24,8 @@ func (nr *NoteRepository) Create(ctx context.Context, title, content string) (*d
 		Id:        uuid.New(),
 		Title:     title,
 		Content:   content,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	_, err := nr.conn.Exec(
