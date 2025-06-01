@@ -45,12 +45,13 @@ func (nh *NoteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := nh.repo.Create(r.Context(), reqBody.Title, reqBody.Content); err != nil {
+	note, err := nh.repo.Create(r.Context(), reqBody.Title, reqBody.Content)
+	if err != nil {
 		nh.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("POST /note: %s\n", err.Error()))
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	nh.respondWithJSON(w, http.StatusCreated, note)
 }
 
 func (nh *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -61,9 +62,7 @@ func (nh *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-
-	if err = json.NewEncoder(w).Encode(notes); err != nil {
+	if err = nh.respondWithJSON(w, http.StatusOK, notes); err != nil {
 		nh.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("GET /note: %s\n", err.Error()))
 		return
 	}
@@ -156,7 +155,7 @@ func (nh *NoteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(note); err != nil {
+	if err := nh.respondWithJSON(w, http.StatusOK, note); err != nil {
 		nh.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("PATCH /note/%s: %s\n", rawId, err.Error()))
 		return
 	}
@@ -201,4 +200,11 @@ func (nh *NoteHandler) respondWithError(w http.ResponseWriter, status int, messa
 	} else if messages[0] != "" {
 		w.Write([]byte(messages[0]))
 	}
+}
+
+func (nh *NoteHandler) respondWithJSON(w http.ResponseWriter, status int, data any) error {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	return json.NewEncoder(w).Encode(data)
 }
