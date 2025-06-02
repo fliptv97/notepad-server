@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/fliptv97/notepad-server/domain"
+	memrepo "github.com/fliptv97/notepad-server/internal/repositories/memory"
 	"github.com/google/uuid"
 )
 
-func getMockRepo() *NoteRepositoryMock {
-	return &NoteRepositoryMock{
+func getMockRepo() *memrepo.NoteRepository {
+	return &memrepo.NoteRepository{
 		Notes: []domain.Note{
 			{Id: uuid.New(), Title: "1st note", Content: "1st content", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
 			{Id: uuid.New(), Title: "2nd note", Content: "2nd content", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
@@ -24,7 +25,7 @@ func getMockRepo() *NoteRepositoryMock {
 }
 
 func TestCreate(t *testing.T) {
-	repo := &NoteRepositoryMock{}
+	repo := &memrepo.NoteRepository{}
 	handler := NewNoteHandler(repo)
 
 	body := `{ "title": "note title", "content": "note content" }`
